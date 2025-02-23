@@ -1,0 +1,36 @@
+{
+    "name": "codprox/laravel-onesignal",
+    "description": "A Laravel package for OneSignal push notifications",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Armand MOUELE",
+            "email": "armandmoueleprofessionnel@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.8",
+        "illuminate/support": "^11.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CodproX\\OneSignal\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CodproX\\OneSignal\\OneSignalServiceProvider"
+            ],
+            "aliases": {
+                "OneSignal": "CodproX\\OneSignal\\OneSignalFacade"
+            }
+        }
+    },
+    "minimum-stability": "stable"
+}
