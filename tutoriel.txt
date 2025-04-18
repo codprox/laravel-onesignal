@@ -1,0 +1,143 @@
+
+=== Tutoriel d'utilisation de codprox/laravel-onesignal ===
+
+Prérequis :
+- Assurez-vous que le package est installé avec `composer require codprox/laravel-onesignal`.
+- Configurez vos clés dans `.env` :
+  ONESIGNAL_APP_ID=your_app_id
+  ONESIGNAL_REST_API_KEY=your_rest_api_key
+  ONESIGNAL_DEFAULT_ICON=https://your-site.com/icon.png
+
+1. Envoi d'une notification à tous les abonnés
+--------------------------------------------
+use Codprox\OneSignal\Facades\OneSignal;
+
+try {
+    $response = OneSignal::sendToAll(
+        ['News', 'Check out our latest update!', 'https://example.com', null, null],
+        ['badge_count' => 3, 'data' => ['key' => 'value']],
+        '2025-03-01T10:00:00Z' // Programmée
+    );
+    print_r($response);
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+2. Envoi d'une notification à des utilisateurs spécifiques
+---------------------------------------------------------
+try {
+    $response = OneSignal::sendToUsers(
+        ['user123', 'user456'],
+        ['Alert', 'Your account needs attention', null, null, null],
+        ['android_sound' => 'alert']
+    );
+    print_r($response);
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+3. Envoi d'une notification à un segment
+----------------------------------------
+try {
+    $response = OneSignal::sendToSegment(
+        'Students',
+        ['Meeting', 'Tomorrow at 14:00', 'https://school.com', null, null]
+    );
+    print_r($response);
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+4. Création d'un segment
+------------------------
+try {
+    $result = OneSignal::createSegment('Teachers');
+    if ($result['exists']) {
+        echo "Segment déjà existant : " . $result['id'];
+    } else {
+        echo "Segment créé : " . $result['id'];
+    }
+
+    // Avec une valeur spécifique
+    $result = OneSignal::createSegment('Level 10', '10');
+    print_r($result);
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+5. Mise à jour d'un segment
+---------------------------
+try {
+    $response = OneSignal::updateSegment(
+        'segment_id_here',
+        'Updated Teachers',
+        [['field' => 'tag', 'key' => 'teachers', 'relation' => '=', 'value' => 'true']]
+    );
+    print_r($response);
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+6. Suppression d'un segment
+---------------------------
+try {
+    $success = OneSignal::deleteSegment('segment_id_here');
+    echo $success ? 'Segment supprimé' : 'Échec de la suppression';
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+7. Liste des segments
+---------------------
+try {
+    $segments = OneSignal::listSegments();
+    foreach ($segments as $segment) {
+        echo "Segment: {$segment['name']} (ID: {$segment['id']})\n";
+    }
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+8. Inscription à des segments
+-----------------------------
+try {
+    $success = OneSignal::subscribeToSegments('player_id_here', ['Students', 'Level 10']);
+    echo $success ? 'Inscription réussie' : 'Échec de l’inscription';
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+9. Désinscription de segments
+-----------------------------
+try {
+    $success = OneSignal::unsubscribeFromSegments('player_id_here', ['Students']);
+    echo $success ? 'Désinscription réussie' : 'Échec de la désinscription';
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+10. Récupération de tous les appareils inscrits
+-----------------------------------------------
+try {
+    $devices = OneSignal::getDevices(50, 0); // 50 appareils, première page
+    foreach ($devices as $device) {
+        echo "Player ID: {$device['id']}, Tags: " . json_encode($device['tags']) . "\n";
+    }
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+11. Récupération des utilisateurs d’un segment
+----------------------------------------------
+try {
+    $users = OneSignal::usersSegments('Students', 100, 0); // 100 utilisateurs, première page
+    foreach ($users as $user) {
+        echo "Player ID: {$user['id']}, Tags: " . json_encode($user['tags']) . "\n";
+    }
+} catch (Exception $e) {
+    echo "Erreur : " . $e->getMessage();
+}
+
+Notes :
+- Les résultats sont mis en cache par défaut pour 3600 secondes (configurable via ONESIGNAL_CACHE_TTL).
+- Utilisez try-catch pour gérer les exceptions InvalidArgumentException et GuzzleException.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Classes;
+namespace Codprox\OneSignal;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -108,7 +108,7 @@ class MyOneSignal
 
         $payload = ['name' => $name, 'filters' => $filters];
         $response = $this->client->put("apps/{$this->appId}/segments/{$segmentId}", ['json' => $payload]);
-        Cache::forget("onesignal_segments_{$this->appId}"); // Invalider le cache des segments
+        Cache::forget("onesignal_segments_{$this->appId}");
         return json_decode($response->getBody()->getContents(), true);
     }
 
@@ -119,7 +119,7 @@ class MyOneSignal
         }
 
         $response = $this->client->delete("apps/{$this->appId}/segments/{$segmentId}");
-        Cache::forget("onesignal_segments_{$this->appId}"); // Invalider le cache
+        Cache::forget("onesignal_segments_{$this->appId}");
         return $response->getStatusCode() === 200;
     }
 
@@ -171,6 +171,88 @@ class MyOneSignal
             Log::error('Failed to unsubscribe from segments: ' . $e->getMessage(), ['playerId' => $playerId, 'segments' => $segments]);
             throw $e;
         }
+    }
+
+    /**
+     * Récupère la liste de tous les appareils inscrits à l'application.
+     *
+     * @param int $limit Nombre maximum de résultats (défaut: 300, max: 2000)
+     * @param int $offset Décalage pour la pagination (défaut: 0)
+     * @return array Liste des appareils
+     * @throws GuzzleException
+     */
+    public function getDevices(int $limit = 300, int $offset = 0): array
+    {
+        if ($limit < 1 || $limit > 2000) {
+            throw new InvalidArgumentException('Limit must be between 1 and 2000.');
+        }
+        if ($offset < 0) {
+            throw new InvalidArgumentException('Offset cannot be negative.');
+        }
+
+        $cacheKey = "onesignal_devices_{$this->appId}_limit{$limit}_offset{$offset}";
+        return Cache::remember($cacheKey, $this->cacheTtl, function () use ($limit, $offset) {
+            try {
+                $response = $this->client->get("players", [
+                    'query' => [
+                        'app_id' => $this->appId,
+                        'limit' => $limit,
+                        'offset' => $offset,
+                    ],
+                ]);
+                $data = json_decode($response->getBody()->getContents(), true);
+                return $data['players'] ?? [];
+            } catch (GuzzleException $e) {
+                Log::error('Failed to get devices: ' . $e->getMessage());
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Récupère les utilisateurs inscrits à un segment spécifique via leurs tags.
+     *
+     * @param string $segmentName Nom du segment
+     * @param int $limit Nombre maximum de résultats (défaut: 300, max: 2000)
+     * @param int $offset Décalage pour la pagination (défaut: 0)
+     * @return array Liste des joueurs inscrits au segment
+     * @throws GuzzleException
+     */
+    public function usersSegments(string $segmentName, int $limit = 300, int $offset = 0): array
+    {
+        if (empty($segmentName)) {
+            throw new InvalidArgumentException('Segment name cannot be empty.');
+        }
+        if ($limit < 1 || $limit > 2000) {
+            throw new InvalidArgumentException('Limit must be between 1 and 2000.');
+        }
+        if ($offset < 0) {
+            throw new InvalidArgumentException('Offset cannot be negative.');
+        }
+
+        $tagKey = $this->normalizeSegmentName($segmentName);
+        $cacheKey = "onesignal_users_segment_{$this->appId}_{$tagKey}_limit{$limit}_offset{$offset}";
+        
+        return Cache::remember($cacheKey, $this->cacheTtl, function () use ($tagKey, $limit, $offset) {
+            try {
+                $response = $this->client->get("players", [
+                    'query' => [
+                        'app_id' => $this->appId,
+                        'limit' => $limit,
+                        'offset' => $offset,
+                    ],
+                ]);
+                $players = json_decode($response->getBody()->getContents(), true)['players'] ?? [];
+                
+                // Filtrer les joueurs ayant le tag correspondant au segment
+                return array_filter($players, function ($player) use ($tagKey) {
+                    return isset($player['tags'][$tagKey]) && $player['tags'][$tagKey] === 'true';
+                });
+            } catch (GuzzleException $e) {
+                Log::error('Failed to get users for segment: ' . $e->getMessage(), ['segment' => $segmentName]);
+                throw $e;
+            }
+        });
     }
 
     protected function normalizeSegmentName(string $segmentName): string
